@@ -5,6 +5,7 @@ from .viz import *
 from .layers import *
 from .functions import *
 from .embedding import *
+from .op import *
 import threading
 import torch as th
 import dgl.function as fn
@@ -28,9 +29,8 @@ class Encoder(nn.Module):
     def post_func(self, i):
         layer = self.layers[i]
         def func(nodes):
-            x, wv, z = nodes.data['x'], nodes.data['wv'], nodes.data['z']
-            o = layer.self_attn.get_o(wv / z)
-            x = x + layer.sublayer[0].dropout(o)
+            x = nodes.data['x']
+            x = x + layer.sublayer[0].dropout(nodes.data['a'].view(x.shape[0], -1))
             x = layer.sublayer[1](x, layer.feed_forward)
             return {'x': x if i < self.N - 1 else self.norm(x)}
         return func
@@ -56,9 +56,8 @@ class Decoder(nn.Module):
     def post_func(self, i, l=0):
         layer = self.layers[i]
         def func(nodes):
-            x, wv, z = nodes.data['x'], nodes.data['wv'], nodes.data['z']
-            o = layer.self_attn.get_o(wv / z)
-            x = x + layer.sublayer[l].dropout(o)
+            x = nodes.data['x']
+            x = x + layer.sublayer[l].dropout(nodes.data['a'].view(x.shape[0], -1))
             if l == 1:
                 x = layer.sublayer[2](x, layer.feed_forward)
             return {'x': x if i < self.N - 1 else self.norm(x)}
@@ -76,28 +75,32 @@ class Transformer(nn.Module):
         self.h, self.d_k = h, d_k
         self.att_weight_map = None
 
-    def propagate_attention(self, g, eids):
+    def propagate_attention(self, g, mat, eids):
         # Compute attention score
-        g.apply_edges(src_dot_dst('k', 'q', 'score'), eids)
-        g.apply_edges(scaled_exp('score', np.sqrt(self.d_k)), eids)
+        # g.apply_edges(src_dot_dst('k', 'q', 'score'), eids)
+        edata = MaskedMMCSR.apply(mat['ptr_r'], mat['eid_r'], mat['nid_r'], mat['ptr_c'], mat['eid_c'], mat['nid_c'], g.ndata['k'], g.ndata['q'])
+        edata = SparseSoftmax.apply(mat['ptr_c'], mat['eid_c'], edata / np.sqrt(self.d_k)) 
         # Send weighted values to target nodes
-        g.send_and_recv(eids,
-                        [fn.src_mul_edge('v', 'score', 'v'), fn.copy_edge('score', 'score')],
-                        [fn.sum('v', 'wv'), fn.sum('score', 'z')])
+        # g.send_and_recv(eids,
+        #                [fn.src_mul_edge('v', 'score', 'v'), fn.copy_edge('score', 'score')],
+        #                [fn.sum('v', 'wv'), fn.sum('score', 'z')])
+        g.ndata['a'] = VectorSPMM.apply(mat['ptr_c'], mat['eid_c'], mat['nid_c'], mat['ptr_r'], mat['eid_r'], mat['nid_r'], edata, g.ndata['v'])
 
-    def update_graph(self, g, eids, pre_pairs, post_pairs):
+    def update_graph(self, g, mat, eids, pre_pairs, post_pairs):
         "Update the node states and edge states of the graph."
 
         # Pre-compute queries and key-value pairs.
         for pre_func, nids in pre_pairs:
             g.apply_nodes(pre_func, nids)
-        self.propagate_attention(g, eids)
+        
+        self.propagate_attention(g, mat, eids)
         # Further calculation after attention mechanism
         for post_func, nids in post_pairs:
             g.apply_nodes(post_func, nids)
 
     def forward(self, graph):
         g = graph.g
+        mat = graph.mat
         nids, eids = graph.nids, graph.eids
 
         # embed
@@ -110,24 +113,25 @@ class Transformer(nn.Module):
             pre_func = self.encoder.pre_func(i, 'qkv')
             post_func = self.encoder.post_func(i)
             nodes, edges = nids['enc'], eids['ee']
-            self.update_graph(g, edges, [(pre_func, nodes)], [(post_func, nodes)])
+            self.update_graph(g, mat['ee'], edges, [(pre_func, nodes)], [(post_func, nodes)])
 
         for i in range(self.decoder.N):
             pre_func = self.decoder.pre_func(i, 'qkv')
             post_func = self.decoder.post_func(i)
             nodes, edges = nids['dec'], eids['dd']
-            self.update_graph(g, edges, [(pre_func, nodes)], [(post_func, nodes)])
+            self.update_graph(g, mat['dd'], edges, [(pre_func, nodes)], [(post_func, nodes)])
             pre_q = self.decoder.pre_func(i, 'q', 1)
             pre_kv = self.decoder.pre_func(i, 'kv', 1)
             post_func = self.decoder.post_func(i, 1)
             nodes_e, edges = nids['enc'], eids['ed']
-            self.update_graph(g, edges, [(pre_q, nodes), (pre_kv, nodes_e)], [(post_func, nodes)])
+            self.update_graph(g, mat['ed'], edges, [(pre_q, nodes), (pre_kv, nodes_e)], [(post_func, nodes)])
 
         # visualize attention
+        """
         with lock:
             if self.att_weight_map is None:
                 self._register_att_map(g, graph.nid_arr['enc'][VIZ_IDX], graph.nid_arr['dec'][VIZ_IDX])
-
+        """
         return self.generator(g.ndata['x'][nids['dec']])
 
     def infer(self, graph, max_len, eos_id, k):
