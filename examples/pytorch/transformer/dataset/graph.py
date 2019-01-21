@@ -11,7 +11,7 @@ Graph = namedtuple('Graph',
 
 class GraphPool:
     "Create a graph pool in advance to accelerate graph building phase in Transformer."
-    def __init__(self, n=50, m=50):
+    def __init__(self, n=50, m=50, sparse=False):
         '''
         args:
             n: maximum length of input sequence.
@@ -36,28 +36,65 @@ class GraphPool:
             enc_nodes = th.arange(src_length, dtype=th.long)
             dec_nodes = th.arange(tgt_length, dtype=th.long) + src_length
 
-            # enc -> enc
-            us = enc_nodes.unsqueeze(-1).repeat(1, src_length).view(-1)
-            vs = enc_nodes.repeat(src_length)
-            g_pool[i][j].add_edges(us, vs)
-            num_edges['ee'][i][j] = len(us)
-            us_pool['ee'][i][j] = us
-            vs_pool['ee'][i][j] = vs
-            # enc -> dec
-            us = enc_nodes.unsqueeze(-1).repeat(1, tgt_length).view(-1)
-            vs = dec_nodes.repeat(src_length)
-            g_pool[i][j].add_edges(us, vs)
-            num_edges['ed'][i][j] = len(us)
-            us_pool['ed'][i][j] = us
-            vs_pool['ed'][i][j] = vs
-            # dec -> dec
-            indices = th.triu(th.ones(tgt_length, tgt_length)) == 1
-            us = dec_nodes.unsqueeze(-1).repeat(1, tgt_length)[indices]
-            vs = dec_nodes.unsqueeze(0).repeat(tgt_length, 1)[indices]
-            g_pool[i][j].add_edges(us, vs)
-            num_edges['dd'][i][j] = len(us)
-            us_pool['dd'][i][j] = us
-            vs_pool['dd'][i][j] = vs
+            if sparse:
+                # enc -> enc
+                us, vs = [], []
+                for u in enc_nodes.tolist():
+                    for dv in [-32, -16, -8, -4, -2, -1, 0, 1, 2, 4, 8, 16, 32]:
+                        v = u + dv
+                        if v < 0 or v >= src_length: continue
+                        g_pool[i][j].add_edge(u, v)
+                        us.append(u)
+                        vs.append(v)
+                        num_edges['ee'][i][j] += 1
+                us_pool['ee'][i][j] = th.LongTensor(us)
+                vs_pool['ee'][i][j] = th.LongTensor(vs)
+
+                
+                # enc -> dec
+                us = enc_nodes.unsqueeze(-1).repeat(1, tgt_length).view(-1)
+                vs = dec_nodes.repeat(src_length)
+                g_pool[i][j].add_edges(us, vs)
+                num_edges['ed'][i][j] = len(us)
+                us_pool['ed'][i][j] = us
+                vs_pool['ed'][i][j] = vs
+
+                # dec -> dec
+                us, vs = [], []
+                for u in dec_nodes.tolist():
+                    for dv in [0, 1, 2, 4, 8, 16, 32]:
+                        v = u + dv
+                        if v < src_length or v >= src_length + tgt_length: continue
+                        g_pool[i][j].add_edge(u, v)
+                        us.append(u)
+                        vs.append(v)
+                        num_edges['dd'][i][j] += 1
+                us_pool['dd'][i][j] = th.LongTensor(us)
+                vs_pool['dd'][i][j] = th.LongTensor(vs)
+
+            else:
+                # enc -> enc
+                us = enc_nodes.unsqueeze(-1).repeat(1, src_length).view(-1)
+                vs = enc_nodes.repeat(src_length)
+                g_pool[i][j].add_edges(us, vs)
+                num_edges['ee'][i][j] = len(us)
+                us_pool['ee'][i][j] = us
+                vs_pool['ee'][i][j] = vs
+                # enc -> dec
+                us = enc_nodes.unsqueeze(-1).repeat(1, tgt_length).view(-1)
+                vs = dec_nodes.repeat(src_length)
+                g_pool[i][j].add_edges(us, vs)
+                num_edges['ed'][i][j] = len(us)
+                us_pool['ed'][i][j] = us
+                vs_pool['ed'][i][j] = vs
+                # dec -> dec
+                indices = th.triu(th.ones(tgt_length, tgt_length)) == 1
+                us = dec_nodes.unsqueeze(-1).repeat(1, tgt_length)[indices]
+                vs = dec_nodes.unsqueeze(0).repeat(tgt_length, 1)[indices]
+                g_pool[i][j].add_edges(us, vs)
+                num_edges['dd'][i][j] = len(us)
+                us_pool['dd'][i][j] = us
+                vs_pool['dd'][i][j] = vs
 
         print('successfully created graph pool, time: {0:0.3f}s'.format(time.time() - tic))
         self.g_pool = g_pool

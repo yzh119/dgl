@@ -59,7 +59,7 @@ def main(dev_id, args):
     criterion = LabelSmoothing(V, padding_idx=dataset.pad_id, smoothing=0.1)
     dim_model = 512
 
-    graph_pool = GraphPool()
+    graph_pool = GraphPool(sparse=args.sparse)
     model = make_model(V, V, N=args.N, dim_model=dim_model,
                        universal=args.universal)
 
@@ -68,7 +68,7 @@ def main(dev_id, args):
     model.generator.proj.weight = model.tgt_embed.lut.weight
 
     model, criterion = model.to(device), criterion.to(device)
-    model_opt = NoamOpt(dim_model, 1, 4000 * 1300 / (args.batch * max(1, args.ngpu)),
+    model_opt = NoamOpt(dim_model, 1, 4000 * 1300 / (args.batch * max(1, args.ngpu) * args.grad_accum),
                         T.optim.Adam(model.parameters(), lr=1e-3,
                                      betas=(0.9, 0.98), eps=1e-9))
 
@@ -125,6 +125,7 @@ if __name__ == '__main__':
                            help='visualize attention')
     argparser.add_argument('--universal', action='store_true',
                            help='use universal transformer')
+    argparser.add_argument('--sparse', action='store_true')
     argparser.add_argument('--master-ip', type=str, default='127.0.0.1',
                            help='master ip address')
     argparser.add_argument('--master-port', type=str, default='12345',

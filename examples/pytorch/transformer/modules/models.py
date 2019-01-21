@@ -46,11 +46,11 @@ class Decoder(nn.Module):
         layer = self.layers[i]
         def func(nodes):
             x = nodes.data['x']
-            if fields == 'kv':
-                norm_x = x # In enc-dec attention, x has already been normalized.
+            norm_x = layer.sublayer[l].norm(x) if fields.startswith('q') else x
+            if fields != 'qkv':
+                return layer.src_attn.get(norm_x, fields)
             else:
-                norm_x = layer.sublayer[l].norm(x)
-            return layer.self_attn.get(norm_x, fields)
+                return layer.self_attn.get(norm_x, fields)
         return func
 
     def post_func(self, i, l=0):
