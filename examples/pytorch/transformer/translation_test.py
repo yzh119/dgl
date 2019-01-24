@@ -13,9 +13,10 @@ if __name__ == '__main__':
     argparser.add_argument('--gpu', default=-1, help='gpu id')
     argparser.add_argument('--N', default=6, type=int, help='num of layers')
     argparser.add_argument('--dataset', default='multi30k', help='dataset')
-    argparser.add_argument('--batch', default=64, help='batch size')
+    argparser.add_argument('--batch', default=256, help='batch size')
     argparser.add_argument('--universal', action='store_true', help='use universal transformer') 
-    argparser.add_argument('--checkpoint', type=int, help='checkpoint: you must specify it')
+    argparser.add_argument('--sparse', action='store_true', help='sparse')
+    argparser.add_argument('--checkpoint', type=int, help='checkpoint')
     argparser.add_argument('--print', action='store_true', help='whether to print translated text')
     args = argparser.parse_args()
     args_filter = ['batch', 'gpu', 'print']
@@ -35,7 +36,7 @@ if __name__ == '__main__':
         model.load_state_dict(th.load(f, map_location=lambda storage, loc: storage))
     model = model.to(device)
     model.eval()
-    test_iter = dataset(graph_pool, mode='test', batch_size=args.batch, devices=[device], k=k)
+    test_iter = dataset(graph_pool, mode='test', batch_size=args.batch, device=device, k=k)
     for i, g in enumerate(test_iter):
         with th.no_grad():
             output = model.infer(g, dataset.MAX_LENGTH, dataset.eos_id, k)

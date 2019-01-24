@@ -76,6 +76,7 @@ class Transformer(nn.Module):
         self.att_weight_map = None
 
     def propagate_attention(self, g, mat, eids):
+        "Workaround solution, this would be replaced by calling built-in function"
         # Compute attention score
         # g.apply_edges(src_dot_dst('k', 'q', 'score'), eids)
         edata = MaskedMMCSR.apply(mat['ptr_r'], mat['eid_r'], mat['nid_r'], mat['ptr_c'], mat['eid_c'], mat['nid_c'], g.ndata['k'], g.ndata['q'])
@@ -147,6 +148,7 @@ class Transformer(nn.Module):
             ret: a list of index array correspond to the input sequence specified by `graph``.
         '''
         g = graph.g
+        mat = graph.mat
         N, E = graph.n_nodes, graph.n_edges
         nids, eids = graph.nids, graph.eids
 
@@ -167,7 +169,7 @@ class Transformer(nn.Module):
             pre_func = self.encoder.pre_func(i, 'qkv')
             post_func = self.encoder.post_func(i)
             nodes, edges = nids['enc'], eids['ee']
-            self.update_graph(g, edges, [(pre_func, nodes)], [(post_func, nodes)])
+            self.update_graph(g, mat['ee'], edges, [(pre_func, nodes)], [(post_func, nodes)])
 
         # decode
         log_prob = None
@@ -182,11 +184,11 @@ class Transformer(nn.Module):
             for i in range(self.decoder.N):
                 pre_func, post_func = self.decoder.pre_func(i, 'qkv'), self.decoder.post_func(i)
                 nodes, edges = nodes_d, edges_dd
-                self.update_graph(g, edges, [(pre_func, nodes)], [(post_func, nodes)])
+                self.update_graph(g, mat['dd'], edges, [(pre_func, nodes)], [(post_func, nodes)])
                 pre_q, pre_kv = self.decoder.pre_func(i, 'q', 1), self.decoder.pre_func(i, 'kv', 1)
                 post_func = self.decoder.post_func(i, 1)
                 nodes_e, nodes_d, edges = nids['enc'], nodes_d, edges_ed
-                self.update_graph(g, edges, [(pre_q, nodes_d), (pre_kv, nodes_e)], [(post_func, nodes_d)])
+                self.update_graph(g, mat['ed'], edges, [(pre_q, nodes_d), (pre_kv, nodes_e)], [(post_func, nodes_d)])
 
             frontiers = g.filter_nodes(lambda v: v.data['pos'] == step - 1, nids['dec'])
             out = self.generator(g.ndata['x'][frontiers])

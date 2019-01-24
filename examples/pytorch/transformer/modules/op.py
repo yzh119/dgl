@@ -22,7 +22,6 @@ class SparseSoftmax(Function):
 class MaskedMMCSR(Function):
     @staticmethod
     def forward(ctx, ptr_r, eid_r, nid_r, ptr_c, eid_c, nid_c, A, B):
-        #th.save((ptr_r, eid_r, nid_r, ptr_c, eid_c, nid_c, A, B), '1.pt')
         ctx.save_for_backward(ptr_r, eid_r, nid_r, ptr_c, eid_c, nid_c, A, B)
         return maskedmm_csr_forward(ptr_r, eid_r, nid_r, A, B)
 
@@ -45,15 +44,3 @@ class VectorSPMM(Function):
         dedata, dx = vector_spmm_backward(ptr, eid, nid, ptr_t, eid_t, nid_t, edata, dy, x)
         return None, None, None, None, None, None, dedata, dx
 
-if __name__ == '__main__':
-    ptr_r, eid_r, nid_r, ptr_c, eid_c, nid_c, A, B = th.load('1.pt')
-    ptr_r = ptr_r.to('cuda:0')
-    ptr_c = ptr_c.to('cuda:0')
-    eid_r = eid_r.to('cuda:0')
-    eid_c = eid_c.to('cuda:0')
-    nid_r = nid_r.to('cuda:0')
-    nid_c = nid_c.to('cuda:0')
-    A = A.to('cuda:0')
-    B = B.to('cuda:0')
-    x = MaskedMMCSR.apply(ptr_r, eid_r, nid_r, ptr_c, eid_c, nid_c, A, B)
-    print(x)
