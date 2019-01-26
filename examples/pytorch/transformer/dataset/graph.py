@@ -14,7 +14,7 @@ Graph = namedtuple('Graph',
 
 class GraphPool:
     "Create a graph pool in advance to accelerate graph building phase in Transformer."
-    def __init__(self, n=50, m=50, sparse=False):
+    def __init__(self, n=100, m=100, sparse=False):
         '''
         args:
             n: maximum length of input sequence.

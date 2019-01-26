@@ -6,14 +6,14 @@ from tqdm import tqdm
 import numpy as n
 import argparse
 
-k = 5 # Beam size
+k = 12 # Beam size
 
 if __name__ == '__main__':
     argparser = argparse.ArgumentParser('testing translation model')
     argparser.add_argument('--gpu', default=-1, help='gpu id')
     argparser.add_argument('--N', default=6, type=int, help='num of layers')
     argparser.add_argument('--dataset', default='multi30k', help='dataset')
-    argparser.add_argument('--batch', default=256, help='batch size')
+    argparser.add_argument('--batch', default=4096, help='batch size')
     argparser.add_argument('--universal', action='store_true', help='use universal transformer') 
     argparser.add_argument('--sparse', action='store_true', help='sparse')
     argparser.add_argument('--checkpoint', type=int, help='checkpoint')
@@ -37,15 +37,15 @@ if __name__ == '__main__':
     model = model.to(device)
     model.eval()
     test_iter = dataset(graph_pool, mode='test', batch_size=args.batch, device=device, k=k)
+    for line in dataset.tgt['test']:
+        print(line.strip(), file=fref)
     for i, g in enumerate(test_iter):
         with th.no_grad():
-            output = model.infer(g, dataset.MAX_LENGTH, dataset.eos_id, k)
+            output = model.infer(g, dataset.MAX_LENGTH, dataset.eos_id, k, alpha=0.6)
         for line in dataset.get_sequence(output):
             if args.print:
                 print(line)
             print(line, file=fpred)
-        for line in dataset.tgt['test']:
-            print(line.strip(), file=fref)
     fpred.close()
     fref.close()
     os.system(r'bash scripts/bleu.sh pred.txt ref.txt')

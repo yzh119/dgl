@@ -17,7 +17,7 @@ class TranslationDataset(object):
     INIT_TOKEN = '<sos>'
     EOS_TOKEN = '<eos>'
     PAD_TOKEN = '<pad>'
-    MAX_LENGTH = 50
+    MAX_LENGTH = 100
     def __init__(self, path, exts, train='train', valid='valid', test='test', vocab='vocab.txt', replace_oov=None):
         vocab_path = os.path.join(path, vocab)
         self.src = {}
@@ -113,6 +113,7 @@ class TranslationDataset(object):
 
         src_buf, tgt_buf = [], []
 
+        cnt = 0
         for idx in order:
             src_sample = self.src_field(
                 src_data[idx].strip().split())
@@ -120,12 +121,14 @@ class TranslationDataset(object):
                 tgt_data[idx].strip().split())
             src_buf.append(src_sample)
             tgt_buf.append(tgt_sample)
-            if len(src_buf) == batch_size:
+            cnt += len(src_sample)
+            if cnt >= batch_size:
                 if mode == 'test':
                     yield graph_pool.beam(src_buf, self.sos_id, self.MAX_LENGTH, k, device=device)
                 else:
                     yield graph_pool(src_buf, tgt_buf, device=device)
                 src_buf, tgt_buf = [], []
+                cnt = 0
 
         if len(src_buf) != 0:
             if mode == 'test':
