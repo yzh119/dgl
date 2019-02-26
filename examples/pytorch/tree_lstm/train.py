@@ -13,14 +13,15 @@ from dgl.data.tree import SST, SSTBatch
 
 from tree_lstm import TreeLSTM
 
-SSTBatch = collections.namedtuple('SSTBatch', ['graph', 'mask', 'wordid', 'label'])
+SSTBatch = collections.namedtuple('SSTBatch', ['graph', 'mask', 'wordid', 'label', 'etype'])
 def batcher(device):
     def batcher_dev(batch):
         batch_trees = dgl.batch(batch)
         return SSTBatch(graph=batch_trees,
                         mask=batch_trees.ndata['mask'].to(device),
                         wordid=batch_trees.ndata['x'].to(device),
-                        label=batch_trees.ndata['y'].to(device))
+                        label=batch_trees.ndata['y'].to(device),
+                        etype=batch_trees.ndata['etype'].to(device))
     return batcher_dev
 
 def main(args):

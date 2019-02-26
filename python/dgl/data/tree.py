@@ -103,7 +103,7 @@ class SST(object):
     def _build_tree(self, root):
         g = nx.DiGraph()
         def _rec_build(nid, node):
-            for child in node:
+            for i, child in enumerate(node):
                 cid = g.number_of_nodes()
                 if isinstance(child[0], str) or isinstance(child[0], bytes):
                     # leaf node
@@ -112,12 +112,12 @@ class SST(object):
                 else:
                     g.add_node(cid, x=SST.PAD_WORD, y=int(child.label()), mask=0)
                     _rec_build(cid, child)
-                g.add_edge(cid, nid)
+                g.add_edge(cid, nid, etype=i)
         # add root
         g.add_node(0, x=SST.PAD_WORD, y=int(root.label()), mask=0)
         _rec_build(0, root)
         ret = dgl.DGLGraph()
-        ret.from_networkx(g, node_attrs=['x', 'y', 'mask'])
+        ret.from_networkx(g, node_attrs=['x', 'y', 'mask'], edge_attrs=['etype'])
         return ret
 
     def __getitem__(self, idx):

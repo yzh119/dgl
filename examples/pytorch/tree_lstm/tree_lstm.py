@@ -15,18 +15,25 @@ class TreeLSTMCell(nn.Module):
     def __init__(self, x_size, h_size):
         super(TreeLSTMCell, self).__init__()
         self.W_iou = nn.Linear(x_size, 3 * h_size, bias=False)
-        self.U_iou = nn.Linear(2 * h_size, 3 * h_size, bias=False)
+        self.U_iou = nn.ModuleList([nn.Linear(h_size, 3 * h_size, bias=False) for _ in range(2)])
         self.b_iou = nn.Parameter(th.zeros(1, 3 * h_size))
-        self.U_f = nn.Linear(2 * h_size, 2 * h_size)
+        self.U_f = nn.ModuleList([nn.Linear(h_size, 2 * h_size) for _ in range(2)])
 
     def message_func(self, edges):
-        return {'h': edges.src['h'], 'c': edges.src['c']}
+        #return {'h': edges.src['h'], 'c': edges.src['c']}
+        h = edges.src['h']
+        etype = edges.data['etype']
+        return {'f': self.U_f[0](h) * etype + self.U_f[1] * (1 - etype),
+                'iou': self.U_iou[0](h) * etype + self.U_iou[1] * (1 - etype),
+                'c': edges.src['c']}
 
     def reduce_func(self, nodes):
-        h_cat = nodes.mailbox['h'].view(nodes.mailbox['h'].size(0), -1)
-        f = th.sigmoid(self.U_f(h_cat)).view(*nodes.mailbox['h'].size())
+        #h_cat = nodes.mailbox['h'].view(nodes.mailbox['h'].size(0), -1)
+        f = th.sigmoid(nodes.mailbox['f'])
+        print(f.shape)
+        print(nodes.mailbox['c'].shape)
         c = th.sum(f * nodes.mailbox['c'], 1)
-        return {'iou': self.U_iou(h_cat), 'c': c}
+        return {'iou': nodes.mailbox['iou'], 'c': c}
 
     def apply_node_func(self, nodes):
         iou = nodes.data['iou'] + self.b_iou
