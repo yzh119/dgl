@@ -28,6 +28,7 @@ static const char kReduceNone[] = "none";
 static const char kAdd[] = "add";
 static const char kSub[] = "sub";
 static const char kMul[] = "mul";
+static const char kDot[] = "dot";
 static const char kDiv[] = "div";
 static const char kUseLhs[] = "use_lhs";
 
@@ -154,6 +155,19 @@ struct BinaryMul {
 };
 
 template <typename DType>
+struct BinaryDot { // TODO(zihao): fix this
+  static DGLDEVICE DGLINLINE DType Call(DType lhs, DType rhs) {
+    return lhs * rhs;
+  }
+  static DGLDEVICE DGLINLINE DType BackwardLhs(DType lhs, DType rhs, DType out) {
+    return rhs;
+  }
+  static DGLDEVICE DGLINLINE DType BackwardRhs(DType lhs, DType rhs, DType out) {
+    return lhs;
+  }
+}
+
+template <typename DType>
 struct BinarySub {
   static DGLDEVICE DGLINLINE DType Call(DType lhs, DType rhs) {
     return lhs - rhs;
@@ -196,12 +210,13 @@ struct BinaryUseLhs {
 // The macro dispatches following combinations:
 //  - Add(Src, Dst), Add(Src, Edge), Add(Dst, Edge)
 //  - Mul(Src, Dst), Mul(Src, Edge), Mul(Dst, Edge)
+//  - Dot(Src, Dst), Dot(Src, Edge), Dot(Dst, Edge)
 //  - Sub(Src, Dst), Sub(Src, Edge), Sub(Dst, Edge)
 //    Sub(Dst, Src), Sub(Edge, Src), Sub(Edge, Dst)
 //  - Div(Src, Dst), Div(Src, Edge), Div(Dst, Edge)
 //    Div(Dst, Src), Div(Edge, Src), Div(Edge, Dst)
 //  - UseLhs(Src, None), UseLhs(Edge, None)
-// Note that for commutative operators (e.g. Add and Mul), we only generate
+// Note that for commutative operators (e.g. Add, Mul and Dot), we only generate
 // kernels for lhs code smaller than rhs code.
 #define OP_TARGET_SWITCH(op, lhs, rhs, DType, OpType, LeftType, RightType, ...)   \
   {                                                            \
@@ -233,6 +248,21 @@ struct BinaryUseLhs {
     {__VA_ARGS__}                                              \
   } else if (op == kMul && lhs == kDst && rhs == kEdge) {      \
     typedef BinaryMul<DType> OpType;                           \
+    typedef SelectDst LeftType;                                \
+    typedef SelectEdge RightType;                              \
+    {__VA_ARGS__}                                              \
+  } else if (op == kDot && lhs == kSrc && rhs == kDst) {       \
+    typedef BinaryDot<DType> OpType;                           \
+    typedef SelectSrc LeftType;                                \
+    typedef SelectDst RightType;                               \
+    {__VA_ARGS__}                                              \
+  } else if (op == kDot && lhs == kSrc && rhs == kEdge) {      \
+    typedef BinaryDot<DType> OpType;                           \
+    typedef SelectSrc LeftType;                                \
+    typedef SelectEdge RightType;                              \
+    {__VA_ARGS__}                                              \
+  } else if (op == kDot && lhs == kDst && rhs == kEdge) {      \
+    typedef BinaryDot<DType> OpType;                           \
     typedef SelectDst LeftType;                                \
     typedef SelectEdge RightType;                              \
     {__VA_ARGS__}                                              \
@@ -320,6 +350,9 @@ struct BinaryUseLhs {
   MSVC_EXPAND(GEN(__VA_ARGS__, SelectSrc, SelectDst, BinaryMul))      \
   MSVC_EXPAND(GEN(__VA_ARGS__, SelectSrc, SelectEdge, BinaryMul))     \
   MSVC_EXPAND(GEN(__VA_ARGS__, SelectDst, SelectEdge, BinaryMul))     \
+  MSVC_EXPAND(GEN(__VA_ARGS__, SelectSrc, SelectDst, BinaryDot))      \
+  MSVC_EXPAND(GEN(__VA_ARGS__, SelectSrc, SelectEdge, BinaryDot))     \
+  MSVC_EXPAND(GEN(__VA_ARGS__, SelectDst, SelectEdge, BinaryDot))     \
   MSVC_EXPAND(GEN(__VA_ARGS__, SelectSrc, SelectDst, BinarySub))      \
   MSVC_EXPAND(GEN(__VA_ARGS__, SelectDst, SelectSrc, BinarySub))      \
   MSVC_EXPAND(GEN(__VA_ARGS__, SelectSrc, SelectEdge, BinarySub))     \
