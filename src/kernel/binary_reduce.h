@@ -184,58 +184,6 @@ void BackwardLhsBinaryOpReduce(
     runtime::NDArray grad_lhs_data);
 
 /*!
- * \brief Compute the lhs gradient of BinaryTensorDot.
- *
- * Examples:
- * A.shape = (N, D1, D2)    # N is the number of nodes.
- * B.shape = (M, D2, D3)    # M is the number of edges.
- * lhs_axes = [1]   # The axes to reduce along in A
- * rhs_axes = [0]   # The axes to reduce along in B
- * C = BinaryTensorDot(graph, A, B, ..., lhs_axes, rhs_axes)
- * C.shape = (M, D1, D3)
- * dC.shape = (M, D1, D3)
- * dA = BackwardLhsTensorDot(graph, A, B, C, )
- * dA.shape = (N, D1, D2)
- *
- * \param
- */
-void BackwardLhsTensorDot(
-    const ImmutableGraph* graph,
-    binary_op::Target lhs, binary_op::Target rhs,
-    runtime::NDArray lhs_mapping,
-    runtime::NDArray rhs_mapping,
-    runtime::NDArray out_mapping,
-    runtime::NDArray lhs_axes,
-    runtime::NDArray rhs_axes,
-    runtime::NDArray lhs_data,
-    runtime::NDArray rhs_data,
-    runtime::NDArray out_data,
-    runtime::NDArray grad_out_data,
-    runtime::NDArray grad_lhs_data
-    );
-
-/*!
- * \brief Compute the rhs gradient of BinaryTensorDot.
- *
- * Examples:
- *
- */
- void BackwardLhsTensorDot(
-    const ImmutableGraph* graph,
-    binary_op::Target lhs,
-    runtime::NDArray lhs_mapping,
-    runtime::NDArray rhs_mapping,
-    runtime::NDArray out_mapping,
-    runtime::NDArray lhs_axes,
-    runtime::NDArray rhs_axes,
-    runtime::NDArray lhs_data,
-    runtime::NDArray rhs_data,
-    runtime::NDArray out_data,
-    runtime::NDArray grad_out_data,
-    runtime::NDArray grad_rhs_data
-    );
-
-/*!
  * \brief Compute the rhs gradient of BinaryOpReduce
  *
  * Broadcasting along feature dimensions is supported. However, the gradient
@@ -276,6 +224,88 @@ void BackwardRhsBinaryOpReduce(
     runtime::NDArray lhs_mapping,
     runtime::NDArray rhs_mapping,
     runtime::NDArray out_mapping,
+    runtime::NDArray lhs_data,
+    runtime::NDArray rhs_data,
+    runtime::NDArray out_data,
+    runtime::NDArray grad_out_data,
+    runtime::NDArray grad_rhs_data);
+
+/*!
+ * \brief Compute the lhs gradient of BinaryTensorDot.
+ *
+ * Examples:
+ * A.shape = (N, D1, D2)    # N is the number of nodes.
+ * B.shape = (M, D2, D3)    # M is the number of edges.
+ * lhs_axes = [1]   # The axes to reduce along in A
+ * rhs_axes = [0]   # The axes to reduce along in B
+ * C = BinaryTensorDot(graph, A, B, ..., lhs_axes, rhs_axes)
+ * C.shape = (M, D1, D3)
+ * dC.shape = (M, D1, D3)
+ * dA = BackwardLhsTensorDot(graph, A, B, C, ...)
+ * dA.shape = (N, D1, D2)
+ *
+ * \param lhs The lhs target(src, dst, edge).
+ * \param rhs The rhs target(src, dst, edge).
+ * \param lhs_mapping An optional int64 id mapping array.
+ * \param rhs_mapping An optional int64 id mapping array.
+ * \param out_mapping An optional int64 id mapping array.
+ * \param lhs_axes An int64 array to represent the axes to reduce along in lhs_data.
+ * \param rhs_axes An int64 array to represent the axes to reduce along in rhs_data.
+ * \param lhs_data The lhs feature tensor.
+ * \param rhs_data The rhs feature tensor.
+ * \param out_data The output tensor, COULD ONLY BE EDGE FEATURES.
+ * \param grad_out_data The gradient output tensor.
+ * \param grad_lhs_data The gradient lhs tensor.
+ */
+void BackwardLhsTensorDot(
+    const ImmutableGraph* graph,
+    binary_op::Target lhs, binary_op::Target rhs,
+    runtime::NDArray lhs_mapping,
+    runtime::NDArray rhs_mapping,
+    runtime::NDArray out_mapping,
+    runtime::NDArray lhs_axes,
+    runtime::NDArray rhs_axes,
+    runtime::NDArray lhs_data,
+    runtime::NDArray rhs_data,
+    runtime::NDArray out_data,
+    runtime::NDArray grad_out_data,
+    runtime::NDArray grad_lhs_data);
+
+/*!
+ * \brief Compute the rhs gradient of BinaryTensorDot.
+ *
+ * Examples:
+ * A.shape = (N, D1, D2)    # N is the number of nodes.
+ * B.shape = (M, D2, D3)    # M is the number of edges.
+ * lhs_axes = [1]   # The axes to reduce along in A
+ * rhs_axes = [0]   # The axes to reduce along in B
+ * C = BinaryTensorDot(graph, A, B, ..., lhs_axes, rhs_axes)
+ * C.shape = (M, D1, D3)
+ * dC.shape = (M, D1, D3)
+ * dB = BackwardRhsTensorDot(graph, A, B, C, ...)
+ * dB.shape = (M, D2, D3)
+ *
+ * \param lhs The lhs target(src, dst, edge).
+ * \param rhs The rhs target(src, dst, edge).
+ * \param lhs_mapping An optional int64 id mapping array.
+ * \param rhs_mapping An optional int64 id mapping array.
+ * \param out_mapping An optional int64 id mapping array.
+ * \param lhs_axes An int64 array to represent the axes to reduce along in lhs_data.
+ * \param rhs_axes An int64 array to represent the axes to reduce along in rhs_data.
+ * \param lhs_data The lhs feature tensor.
+ * \param rhs_data The rhs feature tensor.
+ * \param out_data The output tensor, COULD ONLY BE EDGE FEATURES.
+ * \param grad_out_data The gradient output tensor.
+ * \param grad_rhs_data The gradient rhs tensor.
+ */
+ void BackwardRhsTensorDot(
+    const ImmutableGraph* graph,
+    binary_op::Target lhs,
+    runtime::NDArray lhs_mapping,
+    runtime::NDArray rhs_mapping,
+    runtime::NDArray out_mapping,
+    runtime::NDArray lhs_axes,
+    runtime::NDArray rhs_axes,
     runtime::NDArray lhs_data,
     runtime::NDArray rhs_data,
     runtime::NDArray out_data,

@@ -213,6 +213,15 @@ std::vector<int64_t> InferBinaryFeatureShape(
   return CalcBcastInfo(lhs, rhs).real_out_shape;
 }
 
+std::vector<int64_t> InferTensorDotFeatureShape(
+    runtime::NDArray lhs,
+    runtime::NDArray rhs,
+    runtime::NDArray lhs_axes,
+    runtime::NDArray rhs_axes) {
+    // TODO(zihao)
+}
+
+
 DGL_REGISTER_GLOBAL("kernel._CAPI_DGLKernelInferBinaryFeatureShape")
 .set_body([] (DGLArgs args, DGLRetValue* rv) {
     NDArray lhs = args[0];
@@ -291,6 +300,17 @@ DGL_REGISTER_GLOBAL("kernel._CAPI_DGLKernelBinaryOpReduce")
         lhs_data, rhs_data, out_data,
         lhs_mapping, rhs_mapping, out_mapping);
   });
+
+void BinaryTensorDot(
+    const ImmutableGraph* graph,
+    binary_op::Target lhs, binary_op::Target rhs,
+    runtime::NDArray lhs_data, runtime::NDArray rhs_data
+    runtime::NDArray out_data,
+    runtime::NDArray lhs_mapping, runtime::NDArray rhs_data,
+    runtime::NDArray out_mapping,
+    runtime::NDArray lhs_axes, runtime::NDArray rhs_axes) {
+    // TODO(zihao)
+}
 
 void BackwardLhsBinaryOpReduce(
     const std::string& reducer,
@@ -444,6 +464,38 @@ DGL_REGISTER_GLOBAL("kernel._CAPI_DGLKernelBackwardRhsBinaryOpReduce")
         lhs_data, rhs_data, out_data, grad_out_data,
         grad_rhs_data);
   });
+
+void BackwardLhsBinaryOpReduce(
+    const std::string& reducer,
+    const std::string& op,
+    const ImmutableGraph* graph,
+    binary_op::Target lhs, binary_op::Target rhs,
+    runtime::NDArray lhs_mapping,
+    runtime::NDArray rhs_mapping,
+    runtime::NDArray out_mapping,
+    runtime::NDArray lhs_data,
+    runtime::NDArray rhs_data,
+    runtime::NDArray out_data,
+    runtime::NDArray grad_out_data,
+    runtime::NDArray grad_lhs_data) {
+    // TODO(zihao)
+}
+
+void BackwardRhsBinaryOpReduce(
+    const std::string& reducer,
+    const std::string& op,
+    const ImmutableGraph* graph,
+    binary_op::Target lhs, binary_op::Target rhs,
+    runtime::NDArray lhs_mapping,
+    runtime::NDArray rhs_mapping,
+    runtime::NDArray out_mapping,
+    runtime::NDArray lhs_data,
+    runtime::NDArray rhs_data,
+    runtime::NDArray out_data,
+    runtime::NDArray grad_out_data,
+    runtime::NDArray grad_rhs_data) {
+    // TODO(zihao)
+}
 
 void CopyReduce(
     const std::string& reducer,
