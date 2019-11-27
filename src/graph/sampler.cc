@@ -774,6 +774,7 @@ std::vector<NodeFlow> NeighborSamplingImpl(const ImmutableGraphPtr gptr,
     BuildCsr(*gptr, neigh_type);
     // generate node flows
     std::vector<NodeFlow> nflows(num_workers);
+    set_omp_threads(num_workers); 
 #pragma omp parallel for
     for (int i = 0; i < num_workers; i++) {
       // create per-worker seed nodes.
