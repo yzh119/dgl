@@ -95,6 +95,7 @@ class ExternalEmbedding:
         self.state_step = 0
         self.async_q = None
         self.async_p = None
+        self.lock = mp.Lock()
 
     def init(self, emb_init):
         INIT.uniform_(self.emb, -emb_init, emb_init)
@@ -105,7 +106,9 @@ class ExternalEmbedding:
         self.state_sum.share_memory_()
 
     def __call__(self, idx, gpu_id=-1, trace=True):
+        self.lock.acquire()
         s = self.emb[idx]
+        self.lock.release()
         if gpu_id >= 0:
             s = s.cuda(gpu_id)
         # During the training, we need to trace the computation.
@@ -139,7 +142,9 @@ class ExternalEmbedding:
                         grad_indices = grad_indices.to(device)
                     if device != grad_sum.device:
                         grad_sum = grad_sum.to(device)
+                    self.lock.acquire()
                     self.state_sum.index_add_(0, grad_indices, grad_sum)
+                    self.lock.release()
                     std = self.state_sum[grad_indices]  # _sparse_mask
                     if gpu_id >= 0:
                         std = std.cuda(gpu_id)
@@ -148,7 +153,9 @@ class ExternalEmbedding:
                     if tmp.device != device:
                         tmp = tmp.to(device)
                     # TODO(zhengda) the overhead is here.
+                    self.lock.acquire()
                     self.emb.index_add_(0, grad_indices, tmp)
+                    self.lock.release()
         self.trace = []
 
     def create_async_update(self):
