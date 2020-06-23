@@ -4,6 +4,7 @@
  * \brief Geometry operator CUDA implementation
  */
 #include <dgl/array.h>
+#include <cub/cub.cuh>
 
 #include "../../runtime/cuda/cuda_common.h"
 #include "../../c_api_common.h"
@@ -75,6 +76,7 @@ __global__ void fps_kernel(const FloatType *array_data, const int64_t batch_size
 
     __syncthreads();
 
+    /*
     if (thread_idx == 0) {
       FloatType best = dist_max_ht[0];
       int64_t best_idx = dist_argmax_ht[0];
@@ -86,6 +88,7 @@ __global__ void fps_kernel(const FloatType *array_data, const int64_t batch_size
       }
       ret_data[ret_start + i + 1] = (IdType)(best_idx);
     }
+    */
   }
 }
 
