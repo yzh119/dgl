@@ -36,30 +36,30 @@ __global__ void SDDMMCooKernel(
   const int64_t *ubcast_off, const int64_t *vbcast_off,
   int64_t ufeat_len, int64_t vfeat_len, int64_t out_len) {
   // SDDMM with COO.
-  Idx ty = blockIdx.y * blockDim.y + threadIdx.y;
-  const Idx stride_y = blockDim.y * gridDim.y;
+  Idx tx = blockIdx.x * blockDim.x + threadIdx.x;
+  const Idx stride_x = blockDim.x * gridDim.x;
   while (ty < E) {
-    const Idx src = _ldg(row + ty);
-    const Idx dst = _ldg(col + ty);
-    const Idx eid = UseIdx ? _ldg(edge_map + ty) : ty;
+    const Idx src = _ldg(row + tx);
+    const Idx dst = _ldg(col + tx);
+    const Idx eid = UseIdx ? _ldg(edge_map + tx) : tx;
     const DType* lhsoff = BinaryOp::use_lhs ?
       (ufeat + src * ufeat_len): nullptr;
     const DType* rhsoff = BinaryOp::use_rhs ?
       (vfeat + dst * vfeat_len): nullptr;
     DType* outoff = out + eid * out_len;
-    int tx = blockIdx.x * blockDim.x + threadIdx.x;
-    const int stride_x = blockDim.x * gridDim.x;
-    while (tx < out_len) {
-      const Idx lhs_add = UseBcast ? ubcast_off[tx] : tx;
-      const Idx rhs_add = UseBcast ? vbcast_off[tx] : tx;
+    int ty = blockIdx.y * blockDim.y + threadIdx.y;
+    const int stride_y = blockDim.y * gridDim.y;
+    while (ty < out_len) {
+      const Idx lhs_add = UseBcast ? ubcast_off[ty] : ty;
+      const Idx rhs_add = UseBcast ? vbcast_off[ty] : ty;
       DType val = BinaryOp::Call(
           lhsoff + lhs_add * reduce_size,
           rhsoff + rhs_add * reduce_size,
           reduce_size);
-      outoff[tx] = val;
-      tx += stride_x;
+      outoff[ty] = val;
+      ty += stride_y;
     }
-    ty += stride_y;
+    tx += stride_x;
   }
 }
 
@@ -161,8 +161,8 @@ void SDDMMCoo(
   const int nbx = (len + ntx - 1) / ntx;
   const int nby = FindNumBlocks<'y'>((nnz + nty - 1) / nty);
   //LOG(INFO) << "nblks=(" << nbx << ", " << nby << ") nthrs=(" << ntx << ", " << nty << ")";
-  const dim3 nblks(nbx, nby);
-  const dim3 nthrs(ntx, nty);
+  const dim3 nblks(nby, nbx);
+  const dim3 nthrs(nty, ntx);
   const bool use_idx = !IsNullArray(coo.data);
 
   BCAST_IDX_CTX_SWITCH(bcast, use_idx, ufeat->ctx, ubcast_off, vbcast_off, {
