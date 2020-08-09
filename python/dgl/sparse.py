@@ -141,7 +141,7 @@ def _gspmm(gidx, op, reduce_op, u, e):
     num_cols = gidx.number_of_nodes(srctype)
     target = F.device_type(ctx)
     key = (num_rows, num_cols, nnz, op, reduce_op, u_shp, e_shp, indice_type, feat_type, target)
-    print(key)
+    #print(key)
     if key not in compiled_gspmm_kernels:
         if target == 'cpu':
             target = 'llvm'
