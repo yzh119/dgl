@@ -72,7 +72,7 @@ void SpMM(const std::string& op, const std::string& reduce,
           NDArray out,
           std::vector<NDArray> out_aux) {
   // TODO(zihao): format tuning
-  SparseFormat format = graph->SelectFormat(0, csc_code);
+  SparseFormat format = graph->SelectFormat(0, coo_code);
   const auto& bcast = CalcBcastOff(op, ufeat, efeat);
 
   ATEN_XPU_SWITCH_CUDA(graph->Context().device_type, XPU, "SpMM", {
