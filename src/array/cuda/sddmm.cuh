@@ -48,7 +48,7 @@ __global__ void SDDMMCooKernel(
   while (ty < E) {
     const Idx src = _ldg(row + ty);
     const Idx dst = _ldg(col + ty);
-    const Idx eid = UseIdx ? _ldg(edge_map + ty) : ty;
+    const Idx eid = ty;//UseIdx ? _ldg(edge_map + ty) : ty;
     const DType* lhsoff = BinaryOp::use_lhs ?
       (lhs + Selector<LhsTarget>::Call(src, eid, dst) * lhs_len): nullptr;
     const DType* rhsoff = BinaryOp::use_rhs ?
@@ -119,7 +119,7 @@ __global__ void SDDMMCsrKernel(
   while (ty < E) {
     const Idx src = BinarySearchSrc<Idx>(indptr, N + 1, ty);
     const Idx dst = _ldg(indices + ty);
-    const Idx eid = UseIdx ? _ldg(edge_map + ty) : ty;
+    const Idx eid = ty;//UseIdx ? _ldg(edge_map + ty) : ty;
     int64_t tx = blockIdx.x * blockDim.x + threadIdx.x;
     const int64_t stride_x = blockDim.x * gridDim.x;
     const DType* lhsoff = BinaryOp::use_lhs ?

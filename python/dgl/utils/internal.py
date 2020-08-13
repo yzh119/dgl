@@ -67,9 +67,9 @@ class Index(object):
             else:
                 self._user_tensor_data[F.context(data)] = data
         elif isinstance(data, nd.NDArray):
-            if not (data.dtype == self.dtype and len(data.shape) == 1):
-                raise InconsistentDtypeException('Index data must be 1D %s vector, but got: %s' %
-                                                 (self.dtype, data.dtype))
+            #if not (data.dtype == self.dtype and len(data.shape) == 1):
+            #    raise InconsistentDtypeException('Index data must be 1D %s vector, but got: %s' %
+            #                                     (self.dtype, data.dtype))
             self._dgl_tensor_data = data
         elif isinstance(data, slice):
             # save it in the _pydata temporarily; materialize it if `tonumpy` is called

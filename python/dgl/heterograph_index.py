@@ -77,6 +77,8 @@ class HeteroGraphIndex(ObjectBase):
         """Return number of edge types."""
         return self.metagraph.number_of_edges()
 
+
+    @utils.cached_member(cache='_cache', prefix='relation')
     def get_relation_graph(self, etype):
         """Get the unitgraph graph of the given edge/relation type.
 
@@ -646,6 +648,7 @@ class HeteroGraphIndex(ObjectBase):
         else:
             raise Exception("unknown format")
 
+    @utils.cached_member(cache='_cache', prefix='scipy')
     def adjacency_matrix_scipy(self, etype, transpose, fmt, return_edge_ids=None):
         """Return the scipy adjacency matrix representation of this graph.
 
@@ -820,6 +823,7 @@ class HeteroGraphIndex(ObjectBase):
         eids = [F.to_dgl_nd(edges) for edges in induced_edges]
         return _CAPI_DGLHeteroEdgeSubgraph(self, eids, preserve_nodes)
 
+    @utils.cached_member(cache='_cache', prefix='unitgraph')
     def get_unitgraph(self, etype, ctx):
         """Create a unitgraph graph from given edge type and copy to the given device
         context.
@@ -910,6 +914,7 @@ class HeteroGraphIndex(ObjectBase):
         """Create all sparse matrices allowed for the graph."""
         return _CAPI_DGLHeteroCreateFormat(self)
 
+    @utils.cached_member(cache='_cache', prefix='reverse')
     def reverse(self):
         """Reverse the heterogeneous graph adjacency
 

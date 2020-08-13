@@ -64,7 +64,7 @@ __global__ void SpMMCooKernel(
   while (ty < E) {
     const Idx src = _ldg(row + ty);
     const Idx dst = _ldg(col + ty);
-    const Idx eid = UseIdx ? _ldg(edge_map + ty) : ty;
+    const Idx eid = ty;//UseIdx ? _ldg(edge_map + ty) : ty;
     int64_t tx = blockIdx.x * blockDim.x + threadIdx.x;
     const int64_t stride_x = blockDim.x * gridDim.x;
     const DType* uoff = BinaryOp::use_lhs ? (ufeat + src * ufeat_len): nullptr;
@@ -166,7 +166,7 @@ __global__ void SpMMCsrKernel(
       const int lhs_add = UseBcast ? ubcast_off[tx] : tx;
       const int rhs_add = UseBcast ? ebcast_off[tx] : tx;
       for (Idx i = indptr[ty]; i < indptr[ty + 1]; ++i) {
-        const Idx eid = UseIdx ? _ldg(edge_map + i) : i;
+        const Idx eid = i;//UseIdx ? _ldg(edge_map + i) : i;
         const Idx cid = _ldg(indices + i);
         const DType* uoff = BinaryOp::use_lhs ? (ufeat + cid * ufeat_len): nullptr;
         const DType* eoff = BinaryOp::use_rhs ? (efeat + eid * efeat_len): nullptr;

@@ -7,6 +7,7 @@ from ._ffi.function import _init_api
 from .base import DGLError
 from . import backend as F
 
+edge_map_cache = {}
 
 def infer_broadcast_shape(op, shp1, shp2):
     r"""Check the shape validity, and infer the output shape given input shape and operator.
@@ -130,6 +131,10 @@ def _gspmm(gidx, op, reduce_op, u, e):
         if F.ndim(e) == 1:
             e = F.unsqueeze(e, -1)
             expand_e = True
+        if id(gidx) not in edge_map_cache:
+            edge_map_cache[id(gidx)]= F.tensor(gidx.adjacency_matrix_scipy(0, False, 'csr', True).data).to(0)
+        edge_mapping = edge_map_cache[id(gidx)].long()
+        e = e[edge_mapping]
     ctx = F.context(u) if use_u else F.context(e)
     dtype = F.dtype(u) if use_u else F.dtype(e)
     u_shp = F.shape(u) if use_u else (0,)
