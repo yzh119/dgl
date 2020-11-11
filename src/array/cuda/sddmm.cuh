@@ -70,6 +70,53 @@ __global__ void SDDMMCooKernel(
   }
 }
 
+/*!
+ * \brief CUDA kernel of SDDMM-dot on Coo format, accelerated with tree reduction.
+ * \note it uses edge parallel strategy, different threadblocks (on y-axis)
+ *       is responsible for the computation on different edges. Threadblocks
+ *       on the x-axis are responsible for the computation on different positions
+ *       in feature dimension.
+ */
+template <typename Idx, typename DType,
+          bool UseBcast = false, bool UseIdx = false,
+          int LhsTarget = 0, int RhsTarget = 2>
+__global__ void SDDMMCooTreeReduceKernel(
+  const DType* __restrict__ lhs,
+  const DType* __restrict__ rhs,
+  DType* __restrict__ out,
+  const Idx* __restrict__ row,
+  const Idx* __restrict__ col,
+  const Idx* __restrict__ edge_map,
+  int64_t N, int64_t M, int64_t E, int64_t reduce_size,
+  const int64_t* __restrict__ lhs_off,
+  const int64_t* __restrict__ rhs_off,
+  int64_t lhs_len, int64_t rhs_len, int64_t out_len) {
+  // SDDMM with COO.
+  Idx ty = blockIdx.x * blockDim.y + threadIdx.y;
+  const Idx stride_y = blockDim.x * gridDim.y;
+  while (ty < E) {
+    const Idx src = _ldg(row + ty);
+    const Idx dst = _ldg(col + ty);
+    const Idx eid = UseIdx ? _ldg(edge_map + ty) : ty;
+    const DType* lhsoff = BinaryOp::use_lhs ?
+      (lhs + Selector<LhsTarget>::Call(src, eid, dst) * lhs_len): nullptr;
+    const DType* rhsoff = BinaryOp::use_rhs ?
+      (rhs + Selector<RhsTarget>::Call(src, eid, dst) * rhs_len): nullptr;
+    DType* outoff = out + eid * out_len;
+    int tx = threadIdx.x;  // tx < 32
+    for (int i = 0; i < out_len; ++i) {
+      const Idx lhs_add = UseBcast ? lhs_off[i] : i;
+      const Idx rhs_add = UseBcast ? rhs_off[i] : i;
+      DType val = 0.;
+      for (int j = 0; j < reduce_size; ++j) {  // TODO(zihao): change to shfl_down
+        val += lhs_off[lhs_add * reduce_size + j] * rhs_off[lhs_add * reduce_size + j];
+      }
+      outoff[i] = val;
+    }
+    ty += stride_y;
+  }
+}
+
 // Binary search the row_offsets to find the source node of the edge id.
 template <typename Idx>
 __device__ __forceinline__ Idx BinarySearchSrc(const Idx *array, Idx length, Idx eid) {
