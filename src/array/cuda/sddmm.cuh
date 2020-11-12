@@ -91,29 +91,26 @@ __global__ void SDDMMCooTreeReduceKernel(
   const int64_t* __restrict__ lhs_off,
   const int64_t* __restrict__ rhs_off,
   int64_t lhs_len, int64_t rhs_len, int64_t out_len) {
-  // SDDMM with COO.
   Idx ty = blockIdx.x * blockDim.y + threadIdx.y;
-  const Idx stride_y = blockDim.x * gridDim.y;
-  while (ty < E) {
+  if (ty < E) {
     const Idx src = _ldg(row + ty);
     const Idx dst = _ldg(col + ty);
     const Idx eid = UseIdx ? _ldg(edge_map + ty) : ty;
-    const DType* lhsoff = BinaryOp::use_lhs ?
-      (lhs + Selector<LhsTarget>::Call(src, eid, dst) * lhs_len): nullptr;
-    const DType* rhsoff = BinaryOp::use_rhs ?
-      (rhs + Selector<RhsTarget>::Call(src, eid, dst) * rhs_len): nullptr;
+    const DType* lhsoff = lhs + Selector<LhsTarget>::Call(src, eid, dst) * lhs_len;
+    const DType* rhsoff = rhs + Selector<RhsTarget>::Call(src, eid, dst) * rhs_len;
     DType* outoff = out + eid * out_len;
     int tx = threadIdx.x;  // tx < 32
     for (int i = 0; i < out_len; ++i) {
       const Idx lhs_add = UseBcast ? lhs_off[i] : i;
       const Idx rhs_add = UseBcast ? rhs_off[i] : i;
-      DType val = 0.;
-      for (int j = 0; j < reduce_size; ++j) {  // TODO(zihao): change to shfl_down
-        val += lhs_off[lhs_add * reduce_size + j] * rhs_off[lhs_add * reduce_size + j];
+      if (tx == 0) {
+        DType val = 0.;
+        for (int j = 0; j < reduce_size; ++j) {  // TODO(zihao): change to shfl_down
+          val += lhs_off[lhs_add * reduce_size + j] * rhs_off[rhs_add * reduce_size + j];
+        }
+        outoff[i] = val;
       }
-      outoff[i] = val;
     }
-    ty += stride_y;
   }
 }
 
@@ -219,24 +216,40 @@ void SDDMMCoo(
   int64_t reduce_dim = bcast.reduce_size;
 
   const int64_t nnz = coo.row->shape[0];
-  const int ntx = FindNumThreads(len);
-  const int nty = CUDA_MAX_NUM_THREADS / ntx;
-  const int nbx = (len + ntx - 1) / ntx;
-  const int nby = FindNumBlocks<'y'>((nnz + nty - 1) / nty);
-  //LOG(INFO) << "nblks=(" << nbx << ", " << nby << ") nthrs=(" << ntx << ", " << nty << ")";
-  const dim3 nblks(nbx, nby);
-  const dim3 nthrs(ntx, nty);
   const bool use_idx = !IsNullArray(coo.data);
 
-  BCAST_IDX_CTX_SWITCH(bcast, use_idx, out->ctx, lhs_off, rhs_off, {
-    CUDA_KERNEL_CALL((SDDMMCooKernel<Idx, DType, Op, UseBcast, UseIdx, LhsTarget, RhsTarget>),
-        nblks, nthrs, 0, thr_entry->stream,
-        lhs_data, rhs_data, out_data,
-        row, col, edge_map,
-        coo.num_rows, coo.num_cols, nnz, reduce_dim,
-        lhs_off, rhs_off,
-        lhs_len, rhs_len, len);
-  });
+  if (std::is_same<Op, binary::Dot<DType> >::value && reduce_dim >= 32) {
+    const int ntx = 32;  // on feature dimension
+    const int nty = 1;  // on graph dimension
+    const int nbx = nnz;
+    const dim3 nblks(nbx, 1);
+    const dim3 nthrs(ntx, nty);
+    BCAST_IDX_CTX_SWITCH(bcast, use_idx, out->ctx, lhs_off, rhs_off, {
+      CUDA_KERNEL_CALL((SDDMMCooTreeReduceKernel<Idx, DType, UseBcast, UseIdx, LhsTarget, RhsTarget>),
+          nblks, nthrs, 0, thr_entry->stream,
+          lhs_data, rhs_data, out_data,
+          row, col, edge_map,
+          coo.num_rows, coo.num_cols, nnz, reduce_dim,
+          lhs_off, rhs_off,
+          lhs_len, rhs_len, len);
+    });        
+  } else {
+    const int ntx = FindNumThreads(len);
+    const int nty = CUDA_MAX_NUM_THREADS / ntx;
+    const int nbx = (len + ntx - 1) / ntx;
+    const int nby = FindNumBlocks<'y'>((nnz + nty - 1) / nty);
+    const dim3 nblks(nbx, nby);
+    const dim3 nthrs(ntx, nty);
+    BCAST_IDX_CTX_SWITCH(bcast, use_idx, out->ctx, lhs_off, rhs_off, {
+      CUDA_KERNEL_CALL((SDDMMCooKernel<Idx, DType, Op, UseBcast, UseIdx, LhsTarget, RhsTarget>),
+          nblks, nthrs, 0, thr_entry->stream,
+          lhs_data, rhs_data, out_data,
+          row, col, edge_map,
+          coo.num_rows, coo.num_cols, nnz, reduce_dim,
+          lhs_off, rhs_off,
+          lhs_len, rhs_len, len);
+    });
+  }
 }
 
 /*!

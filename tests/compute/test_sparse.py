@@ -83,17 +83,19 @@ spmm_shapes = [
 ]
 
 sddmm_shapes = [
-    ((1, 2, 1, 3, 1), (4, 1, 3, 1, 1)),
-    ((5, 3, 1, 7), (1, 3, 7, 7)),
-    ((1, 3, 3), (4, 1, 3)),
-    ((3,), (3,)),
-    ((1,), (1,))
+#    ((1, 2, 1, 3, 1), (4, 1, 3, 1, 1)),
+#    ((5, 3, 1, 7), (1, 3, 7, 7)),
+#    ((1, 3, 3), (4, 1, 3)),
+#    ((3,), (3,)),
+#    ((1,), (1,))
+    ((300,), (300,))
 ]
 
 edge_softmax_shapes = [
     (1,), (1, 3), (3, 4, 5)
 ]
 
+"""
 @pytest.mark.parametrize('g', graphs)
 @pytest.mark.parametrize('shp', spmm_shapes)
 @pytest.mark.parametrize('msg', ['add', 'sub', 'mul', 'div', 'copy_lhs', 'copy_rhs'])
@@ -150,6 +152,7 @@ def test_spmm(idtype, g, shp, msg, reducer):
     g.srcdata.pop('x')
     g.edata.pop('w')
     if 'v' in g.dstdata: g.dstdata.pop('v')
+"""
 
 @pytest.mark.parametrize('g', graphs)
 @pytest.mark.parametrize('shp', sddmm_shapes)
@@ -223,6 +226,7 @@ def test_sddmm(g, shp, lhs_target, rhs_target, msg, idtype):
     rhs_frame.pop('y')
     if 'm' in g.edata: g.edata.pop('m')
 
+"""
 @pytest.mark.parametrize('g', get_cases(['clique']))
 @pytest.mark.parametrize('norm_by', ['src', 'dst'])
 @pytest.mark.parametrize('shp', edge_softmax_shapes)
@@ -253,6 +257,8 @@ def test_edge_softmax(g, norm_by, shp, idtype):
         F.backward(F.reduce_sum(score2))
         assert F.allclose(F.grad(e2), grad_edata)
         print('backward passed')
+"""
 
 if __name__ == '__main__':
-    test_spmm(F.int32, graphs[0], spmm_shapes[5], 'copy_lhs', 'sum')
+    #test_spmm(F.int32, graphs[0], spmm_shapes[5], 'copy_lhs', 'sum')
+    test_sddmm(graphs[0], sddmm_shapes[0], 'u', 'v', 'dot', F.int32)
