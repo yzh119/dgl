@@ -345,8 +345,8 @@ inline bool cusparse_available() {
       return true;
   return false;
 #else
-  if (bits == 16)
-    return false;  // cusparse's SpMM on fp16 is slow, temporally disabled.
+  //if (bits == 16)
+  //  return false;  // cusparse's SpMM on fp16 is slow, temporally disabled.
   return true;
 #endif
 }

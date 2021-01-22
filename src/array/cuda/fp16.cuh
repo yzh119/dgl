@@ -8,7 +8,7 @@
 #ifndef DGL_ARRAY_FP16_CUH_
 #define DGL_ARRAY_FP16_CUH_
 
-#if defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 530)
+//#if defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 530)
 
 #include <cuda_fp16.h>
 
@@ -21,8 +21,9 @@ static __device__ __forceinline__ half min(half a, half b)
 {
   return __hlt(__half(a), __half(b)) ? a : b;
 }
-#else  // half not supported by cuda arch.
+//#else  // half not supported by cuda arch.
 
+/*
 typedef unsigned short uint16_t;
 typedef unsigned char uint8_t;
 typedef signed char int8_t;
@@ -256,8 +257,9 @@ TVM_XINLINE half __ushort_as_half(const uint16_t i) {
 TVM_XINLINE uint16_t __half_as_ushort(const half h) {
   return h.half_;
 }
+*/
 
-#endif  // defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 530) 
+// #endif  // defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 530) 
 
 
 #endif  // DGL_ARRAY_FP16_CUH_
