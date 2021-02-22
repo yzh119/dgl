@@ -214,6 +214,8 @@ void CusparseCsrmm2(
   }
   CUSPARSE_CALL(cusparseSetStream(thr_entry->cusparse_handle, thr_entry->stream));
   // all one data array
+  // allocate matrix for temporary transposed output  
+  DType* trans_out = static_cast<DType*>(device->AllocWorkspace(ctx, m * n * sizeof(DType)));
   DType* valptr = nullptr;
   if (!A_data) {
     valptr = static_cast<DType*>(device->AllocWorkspace(ctx, nnz * sizeof(DType)));
@@ -232,25 +234,25 @@ void CusparseCsrmm2(
       idtype, idtype,
       CUSPARSE_INDEX_BASE_ZERO, dtype));
   CUSPARSE_CALL(cusparseCreateDnMat(&matB,
-      k, n, n,
-      const_cast<DType*>(B_data), dtype, CUSPARSE_ORDER_ROW));
+      n, k, n,
+      const_cast<DType*>(B_data), dtype, CUSPARSE_ORDER_COL));
   CUSPARSE_CALL(cusparseCreateDnMat(&matC,
-      m, n, n,
-      C_data, dtype, CUSPARSE_ORDER_ROW));
+      m, n, m,
+      C_data, dtype, CUSPARSE_ORDER_COL));
 
   auto transA = CUSPARSE_OPERATION_NON_TRANSPOSE;
-  auto transB = CUSPARSE_OPERATION_NON_TRANSPOSE;
+  auto transB = CUSPARSE_OPERATION_TRANSPOSE;
   size_t workspace_size;
   CUSPARSE_CALL(cusparseSpMM_bufferSize(
       thr_entry->cusparse_handle, transA, transB,
       &alpha, matA, matB, &beta, matC,
-      dtype, CUSPARSE_SPMM_CSR_ALG2,
+      dtype, CUSPARSE_SPMM_CSR_ALG1,
       &workspace_size));
   void* workspace = device->AllocWorkspace(ctx, workspace_size);
   CUSPARSE_CALL(cusparseSpMM(
       thr_entry->cusparse_handle, transA, transB,
       &alpha, matA, matB, &beta, matC,
-      dtype, CUSPARSE_SPMM_CSR_ALG2,
+      dtype, CUSPARSE_SPMM_CSR_ALG1,
       workspace));
   device->FreeWorkspace(ctx, workspace);
 
@@ -258,9 +260,6 @@ void CusparseCsrmm2(
   CUSPARSE_CALL(cusparseDestroyDnMat(matB));
   CUSPARSE_CALL(cusparseDestroyDnMat(matC));
 #else
-  // allocate matrix for temporary transposed output
-  DType* trans_out = static_cast<DType*>(device->AllocWorkspace(ctx, m * n * sizeof(DType)));
-
   cusparseMatDescr_t descr;
   CUSPARSE_CALL(cusparseCreateMatDescr(&descr));
   CUSPARSE_CALL(cusparseSetMatType(descr, CUSPARSE_MATRIX_TYPE_GENERAL));
@@ -275,12 +274,12 @@ void CusparseCsrmm2(
       static_cast<int32_t*>(csr.indices->data),
       B_data, n, &beta, trans_out, m));
   CUSPARSE_CALL(cusparseDestroyMatDescr(descr));
+#endif
+  if (valptr) 
+    device->FreeWorkspace(ctx, valptr);
   // transpose the output matrix
   _Transpose(trans_out, C_data, n, m);
   device->FreeWorkspace(ctx, trans_out);
-#endif
-  if (valptr)
-    device->FreeWorkspace(ctx, valptr);
 }
 }  // namespace cusparse
 
